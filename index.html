@@ -31,6 +31,7 @@
     button:hover { background: #22d3ee; color: #00343c; }
     video { width: 100%; max-height: 60vh; border-radius: 14px; background: black }
     .sentence { font-size: 24px; margin: 20px 0; }
+    .example { font-size: 18px; color: #94a3b8; margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -38,8 +39,8 @@
   <div id="home" class="screen active">
     <h1>수화통역 연습</h1>
     <div class="choice">
-      <button onclick="startMode('word')">단어 연습</button>
-      <button onclick="startMode('sentence')">문장 연습</button>
+      <button id="btnWord">단어 연습</button>
+      <button id="btnSentence">문장 연습</button>
     </div>
   </div>
 
@@ -47,19 +48,21 @@
   <div id="app" class="screen">
     <h1 id="modeTitle"></h1>
     <div class="sentence" id="sentence">시작하기를 눌러주세요.</div>
+    <div class="example" id="example"></div>
     <video id="video" playsinline preload="metadata" controls style="display:none;"></video>
-    <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+    <div style="margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
       <button id="startBtn">시작하기</button>
       <button id="reSpeakBtn">🔊 다시 듣기</button>
       <button id="revealBtn">정답 확인</button>
       <button id="nextBtn">다음 ▶</button>
+      <button id="backBtn">← 처음으로</button>
     </div>
   </div>
 
-<script>
-  /* 공용 카드 데이터 (단어=k, 문장=ex) */
-  const CARDS = [
-   { k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "나는 엄마가 시키는 심부름을 잘한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/3hlvgmd9TL18wXbg.mp4" },
+  <script>
+    // 단어(k)와 예문(ex)을 함께 가진 데이터셋
+    const DATA = [
+     { k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "나는 엄마가 시키는 심부름을 잘한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/3hlvgmd9TL18wXbg.mp4" },
 { k: "싸우다, 다투다, 말다툼, 말다툼하다, 논쟁, 논쟁하다, 언쟁, 언쟁하다", ex: "나와 ○○이는 서로 의견이 달라 항상 다툰다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/Ab5WRiRiAxSnDLPk.mp4" },
 { k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "내 말에 순순히 따르는 아들과 딸을 보니 너무 예쁘다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/dVeefaM86pOHthbZ.mp4" },
 { k: "통일, 통일하다, 통합, 통합하다, 합치다", ex: "나는 삼국 통일에 대한 역사를 배우고 나니, 삼국 시대의 역사를 제대로 알게 되었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/fXdsBADFW4PZnOKP.mp4" },
@@ -285,96 +288,129 @@
 { k: "가이드, 여행 안내원, 투어 여행", ex: "가이드가 짜 준 해외여행 일정이 아주 촘촘해서 여유가 없었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/gSuoyo1vBJYUph5Q.MP4" },
 { k: "가이드, 여행 안내원, 투어 여행", ex: "농인 가이드와 함께한 여행은 정말 만족스러웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/X6fOalOgJ2B2QFmc.MP4" },
 
-    // 여기에 계속 추가: { k: "단어", ex: "문장 예문", src: "영상.mp4" },
-  ];
+    ];
 
-  /* 상태 */
-  let MODE = null;  // 'word' | 'sentence'
-  let idx = 0;
-  let started = false;
-  let selectedVoice = null;
+    let MODE = null; // 'word' 또는 'sentence'
+    let order = [];
+    let idx = 0;
+    let started = false;
+    let selectedVoice = null;
 
-  /* 요소 */
-  const sentence = document.getElementById('sentence');
-  const video = document.getElementById('video');
+    const sentence = document.getElementById('sentence');
+    const example = document.getElementById('example');
+    const video = document.getElementById('video');
 
-  /* 모드 선택 */
-  function startMode(mode) {
-    MODE = mode;
-    document.getElementById('home').classList.remove('active');
-    document.getElementById('app').classList.add('active');
-    document.getElementById('modeTitle').textContent = mode === 'word' ? '단어 연습' : '문장 연습';
-    sentence.textContent = '시작하기를 눌러주세요.';
-    video.style.display = 'none';
-    video.pause();
-  }
-
-  /* 유틸 */
-  function shuffle(arr){
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [arr[i],arr[j]]=[arr[j],arr[i]];
+    function showScreen(screen){
+      document.getElementById('home').classList.remove('active');
+      document.getElementById('app').classList.remove('active');
+      document.getElementById(screen).classList.add('active');
     }
-    return arr;
-  }
 
-  function getText(item){
-    // 문장 모드면 ex 사용, 없으면 k로 대체
-    return MODE === 'sentence' ? (item.ex || item.k) : item.k;
-  }
+    document.getElementById('wordBtn').addEventListener('click', ()=>{
+      MODE = 'word';
+      document.getElementById('modeTitle').textContent = '단어 연습';
+      showScreen('app');
+    });
 
-  /* 음성(TTS) */
-  function speak(text){
-    try{ speechSynthesis.cancel(); }catch(e){}
-    if(!text) return;
-    const u = new SpeechSynthesisUtterance(text);
-    if(selectedVoice) u.voice = selectedVoice;
-    u.lang = (selectedVoice?.lang) || 'ko-KR';
-    u.rate = 1.0; u.pitch = 1.0;
-    speechSynthesis.speak(u);
-  }
-  function loadVoices(){
-    const voices = speechSynthesis.getVoices();
-    selectedVoice = voices.find(v=>/ko|Korean|한국어/i.test(v.lang+" "+v.name)) || voices[0] || null;
-  }
-  speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
+    document.getElementById('sentenceBtn').addEventListener('click', ()=>{
+      MODE = 'sentence';
+      document.getElementById('modeTitle').textContent = '문장 연습';
+      showScreen('app');
+    });
 
-  /* 화면 갱신 */
-  function updateView(){
-    const item = CARDS[idx];
-    const text = getText(item);
-    sentence.textContent = text;
-    video.style.display = 'none';
-    video.pause();
-    speak(text); // 자동 음성
-  }
+    document.getElementById('backBtn').addEventListener('click', ()=>{
+      MODE = null;
+      started = false;
+      showScreen('home');
+      sentence.textContent = '시작하기를 눌러주세요.';
+      example.textContent = '';
+      video.style.display = 'none';
+    });
 
-  /* 버튼 동작 */
-  document.getElementById('startBtn').addEventListener('click', ()=>{
-    shuffle(CARDS);
-    idx = 0;
-    started = true;
-    updateView();
-  });
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
 
-  document.getElementById('reSpeakBtn').addEventListener('click', ()=>{
-    if(started) speak(getText(CARDS[idx]));
-  });
+    function speak(text){
+      if(!("speechSynthesis" in window)) return; // TTS 미지원 브라우저 대비
+      try{ speechSynthesis.cancel(); }catch(e){}
+      if(!text) return;
+      const u = new SpeechSynthesisUtterance(text);
+      if(selectedVoice) u.voice = selectedVoice;
+      u.lang = (selectedVoice?.lang) || 'ko-KR';
+      speechSynthesis.speak(u);
+    }catch(e){}
+      if(!text) return;
+      const u = new SpeechSynthesisUtterance(text);
+      if(selectedVoice) u.voice = selectedVoice;
+      u.lang = (selectedVoice?.lang) || 'ko-KR';
+      speechSynthesis.speak(u);
+    }
 
-  document.getElementById('revealBtn').addEventListener('click', ()=>{
-    if(!started) return;
-    const item = CARDS[idx];
-    video.src = item.src;
-    video.style.display = 'block';
-    video.play().catch(()=>{ /* 자동재생 실패 시 무시 */ });
-  });
+    function getText(item){
+      return MODE==='sentence' ? (item.ex || item.k) : item.k;
+    }
 
-  document.getElementById('nextBtn').addEventListener('click', ()=>{
-    if(!started) return;
-    idx = (idx + 1) % CARDS.length;
-    updateView();
-  });
-</script>
+    function updateView(){
+      const item = DATA[order[idx]];
+      const text = getText(item);
+      sentence.textContent = text;
+      example.textContent = MODE==='sentence' ? '('+item.k+')' : '';
+      speak(text);
+      video.style.display = 'none';
+      video.pause();
+    }
 
+    document.getElementById('startBtn').addEventListener('click', ()=>{
+      order = shuffle([...DATA.keys()]);
+      idx = 0;
+      started = true;
+      updateView();
+    });
+
+    document.getElementById('reSpeakBtn').addEventListener('click', ()=>{
+      if(started){
+        const item = DATA[order[idx]];
+        speak(getText(item));
+      }
+    });
+
+    document.getElementById('revealBtn').addEventListener('click', ()=>{
+      if(started){
+        const item = DATA[order[idx]];
+        video.src = item.src;
+        video.style.display = 'block';
+        video.play();
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', ()=>{
+      if(started){
+        idx = (idx+1) % DATA.length;
+        updateView();
+      }
+    });
+
+    function loadVoices(){
+      if(!("speechSynthesis" in window)) { selectedVoice = null; return; }
+      const voices = speechSynthesis.getVoices();
+      selectedVoice = voices.find(v=>/ko|Korean|한국어/i.test(v.lang+" "+v.name)) || voices[0] || null;
+    }
+    // 초기화: 첫 화면 버튼 이벤트 (CSP 환경에서 inline onclick 대체)
+    document.getElementById('btnWord').addEventListener('click', ()=>startMode('word'));
+    document.getElementById('btnSentence').addEventListener('click', ()=>startMode('sentence'));
+
+    // 음성 목록 불러오기 (지원 여부 확인)
+    if ('speechSynthesis' in window) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+      loadVoices();
+    } else {
+      loadVoices();
+    }
+  </script>
 </body>
 </html>
