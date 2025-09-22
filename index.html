@@ -3,157 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>수화통역 연습 | 문장 자동 음성</title>
+  <title>수화통역 연습 | 문장 연습</title>
   <style>
-    :root { color-scheme: dark; }
-    body{
-      margin:0; font-family:system-ui,-apple-system,"Noto Sans KR",Segoe UI,Roboto,sans-serif;
-      background:#0f172a; color:#e5e7eb;
-      min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px;
-    }
-    .wrap{width:100%; max-width:800px;}
-    .card{background:#0b1220; border:1px solid #1f2937; border-radius:14px; padding:20px; box-shadow:0 10px 30px #0006;}
-    h1{margin:0 0 8px; font-size:22px; color:#a5b4fc;}
-    .sentence{font-size:22px; margin:18px 0 6px;}
-    .hint{font-size:14px; color:#94a3b8; margin:0 0 14px;}
-    .controls{display:flex; gap:10px; flex-wrap:wrap}
-    button{
-      background:#1f2937; color:#e5e7eb; border:1px solid #2b3646;
-      padding:12px 18px; border-radius:10px; cursor:pointer; font-size:16px;
-    }
-    button:hover{ background:#22d3ee; color:#00343c; }
-    video{ display:none; width:100%; max-height:60vh; margin-top:14px; border-radius:12px; background:#000; }
+    body{margin:0;font-family:sans-serif;background:#0f172a;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh}
+    .card{background:#111827;padding:20px;border-radius:12px;box-shadow:0 0 20px #0006;max-width:800px;width:100%}
+    button{padding:10px 20px;margin:6px;border-radius:8px;border:none;font-size:16px;cursor:pointer}
+    button.primary{background:#22d3ee;color:#00343c;font-weight:bold}
+    .sentence{margin:20px 0;font-size:22px}
+    video{width:100%;border-radius:12px;background:#000;display:none}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <h1>문장 연습 (자동 음성)</h1>
-      <div class="sentence" id="sentence">로딩 중…</div>
-      <p class="hint" id="hint">다음 ▶ 을 누르면 곧바로 다음 문장을 읽어줍니다.</p>
 
-      <div class="controls">
-        <button id="btnReplay">🔊 다시 듣기</button>
-        <button id="btnReveal">정답(영상) 보기</button>
-        <button id="btnNext">다음 ▶</button>
-      </div>
-
-      <video id="video" playsinline preload="metadata" controls></video>
+  <div id="app" class="card">
+    <h2>문장 연습 (자동 음성)</h2>
+    <div class="sentence" id="sentence">로딩 중...</div>
+    <video id="video" controls></video>
+    <div class="controls">
+      <button id="btnShuffle">🔀 전체 셔플</button>
+      <button id="btnRestart">⏮ 처음부터</button>
+      <button id="btnPrev">◀ 이전</button>
+      <button id="reSpeakBtn">🔊 다시 듣기</button>
+      <button id="revealBtn">정답(영상) 보기</button>
+      <button id="btnNext" class="primary">다음 ▶</button>
     </div>
   </div>
 
-  <script>
-    // === 데이터: { k: ‘의미/키워드’, ex: ‘문장’, src: ‘영상 URL’ } ===
-    const DATA = [
-      { k: "아이고, 아뿔싸", ex: "가: 오후에 비가 내린다는데, 우산 챙겼어? 나: 아이고. 깜빡했네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/a3mFRN8ardsnitaQ.mp4" },
-      { k: "강아지", ex: "강아지 산책은 하루에 30분에서 1시간이 건강을 위해 필요합니다.", src: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4" },
-      { k: "뉴욕 전철", ex: "미국 뉴욕의 전철이 홍수로 침수되었습니다.", src: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4" }
-      // 👉 여기에 기존에 쓰시던 모든 항목을 그대로 이어서 넣으세요.
-    ];
+<script>
+  const CARDS = [
+    { k: "아이고, 아뿔싸", ex: "가: 오후에 비가 내린다는데, 우산 챙겼어? 나: 아이고. 깜빡했네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/a3mFRN8ardsnitaQ.mp4" },
+    { k: "강아지", ex: "강아지 산책은 하루에 30분에서 1시간이 건강을 위해 필요합니다.", src: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4" },
+    { k: "뉴욕 전철", ex: "미국 뉴욕의 전철이 홍수로 침수되었습니다.", src: "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4" }
+  ];
 
-    // === 상태 ===
-    let order = [];      // 랜덤 인덱스 배열
-    let idx = 0;         // 현재 위치
-    let started = false; // 초기화 완료 여부
-    let selectedVoice = null;
+  let idx = 0; let selectedVoice = null;
+  const sentence = document.getElementById('sentence');
+  const video = document.getElementById('video');
 
-    // === 엘리먼트 ===
-    const $sentence = document.getElementById('sentence');
-    const $hint = document.getElementById('hint');
-    const $video = document.getElementById('video');
-    const $btnReplay = document.getElementById('btnReplay');
-    const $btnReveal = document.getElementById('btnReveal');
-    const $btnNext = document.getElementById('btnNext');
-
-    // === 유틸 ===
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
+    return arr;
+  }
 
-    function currentItem() {
-      return DATA[order[idx]];
-    }
+  function speak(text){
+    if (!('speechSynthesis' in window)) return;
+    try { speechSynthesis.cancel(); } catch(e){}
+    if (!text) return;
+    const u = new SpeechSynthesisUtterance(text);
+    if (selectedVoice) u.voice = selectedVoice;
+    u.lang = (selectedVoice?.lang) || 'ko-KR';
+    u.rate = 1; u.pitch = 1;
+    speechSynthesis.speak(u);
+  }
 
-    function speak(text) {
-      if (!('speechSynthesis' in window) || !text) return;
-      try { speechSynthesis.cancel(); } catch (e) {}
-      const u = new SpeechSynthesisUtterance(text);
-      if (selectedVoice) u.voice = selectedVoice;
-      u.lang = (selectedVoice && selectedVoice.lang) || 'ko-KR';
-      u.rate = 1; u.pitch = 1;
-      speechSynthesis.speak(u);
-    }
+  function loadVoices(){
+    if (!('speechSynthesis' in window)) return;
+    const voices = speechSynthesis.getVoices();
+    selectedVoice = voices.find(v => /ko|Korean|한국어/i.test((v.lang||'') + ' ' + (v.name||''))) || voices[0] || null;
+  }
+  if ('speechSynthesis' in window){
+    speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+  }
 
-    function loadVoices() {
-      if (!('speechSynthesis' in window)) return;
-      const voices = speechSynthesis.getVoices();
-      selectedVoice = voices.find(v => /ko|Korean|한국어/i.test(v.lang + ' ' + v.name)) || voices[0] || null;
-    }
+  function updateView(){
+    const item = CARDS[idx];
+    const text = item.ex || item.k;
+    sentence.textContent = text;
+    video.pause();
+    video.style.display = 'none';
+    speak(text);
+  }
 
-    // 일부 브라우저는 voices 로딩이 늦어져 onvoiceschanged가 한참 뒤에 뜹니다.
-    function waitForVoices(timeoutMs = 1200) {
-      return new Promise(resolve => {
-        const start = Date.now();
-        function check() {
-          loadVoices();
-          if (speechSynthesis.getVoices().length || Date.now() - start > timeoutMs) resolve();
-          else setTimeout(check, 100);
-        }
-        check();
-      });
-    }
+  // === 버튼 이벤트 ===
+  document.getElementById('btnShuffle').addEventListener('click', () => {
+    shuffle(CARDS);   // 전체 셔플
+    idx = 0;         // 처음부터 시작
+    updateView();
+  });
 
-    function renderAndSpeak() {
-      const item = currentItem();
-      const text = item.ex || item.k;
-      $sentence.textContent = text;
-      $video.pause();
-      $video.style.display = 'none';
-      speak(text);
-    }
+  document.getElementById('btnRestart').addEventListener('click', () => {
+    idx = 0;         // 처음으로 이동
+    updateView();
+  });
 
-    function initSession() {
-      // 인덱스 랜덤 생성
-      order = DATA.map((_, i) => i);
-      shuffle(order);
-      idx = 0;
-      started = true;
-      renderAndSpeak();
-      $hint.textContent = '정답(영상) 보기를 누르면 수어 영상을 볼 수 있어요.';
-    }
+  document.getElementById('btnPrev').addEventListener('click', () => {
+    idx = (idx - 1 + CARDS.length) % CARDS.length; // 이전
+    updateView();
+  });
 
-    // === 이벤트 ===
-    $btnReplay.addEventListener('click', () => { if (started) speak((currentItem().ex || currentItem().k)); });
+  document.getElementById('reSpeakBtn').addEventListener('click', () => {
+    const item = CARDS[idx];
+    speak(item.ex || item.k);
+  });
 
-    $btnReveal.addEventListener('click', () => {
-      if (!started) return;
-      const { src } = currentItem();
-      if (!src) return;
-      $video.src = src;
-      $video.style.display = 'block';
-      $video.play().catch(() => {});
-    });
+  document.getElementById('revealBtn').addEventListener('click', () => {
+    const item = CARDS[idx];
+    if (!item.src) return;
+    video.src = item.src;
+    video.style.display = 'block';
+    video.play().catch(()=>{});
+  });
 
-    $btnNext.addEventListener('click', () => {
-      if (!started) return;
-      idx = (idx + 1) % order.length;
-      renderAndSpeak();
-    });
+  document.getElementById('btnNext').addEventListener('click', () => {
+    idx = (idx + 1) % CARDS.length; // 다음
+    updateView();
+  });
 
-    // === 시작: 페이지 로드 시 자동으로 문장 모드 시작 ===
-    (async function boot() {
-      if (!DATA.length) {
-        $sentence.textContent = '데이터가 없습니다. DATA 배열을 채워 넣어 주세요.';
-        return;
-      }
-      // 음성 로딩을 잠깐 기다렸다가 세션 시작
-      await waitForVoices();
-      initSession();
-    })();
-  </script>
+  // 초기 실행: 첫 로드 시 자동 셔플 + 첫 문장 음성
+  shuffle(CARDS);
+  idx = 0;
+  updateView();
+</script>
+
 </body>
 </html>
