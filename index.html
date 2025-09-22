@@ -1,1 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>수화통역 연습 | 문장 → 영상</title>
+  <style>
+    :root{
+      --bg:#0f172a;      /* slate-900 */
+      --panel:#111827;   /* gray-900 */
+      --muted:#94a3b8;   /* slate-400 */
+      --text:#e5e7eb;    /* gray-200 */
+      --accent:#22d3ee;  /* cyan-400 */
+      --good:#22c55e;    /* green-500 */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;
+      background:linear-gradient(180deg, #0b1324 0%, var(--bg) 60%);
+      color:var(--text);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .app{ width:min(1100px, 96vw); margin:auto; }
+    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:12px;}
+    header h1{font-size:clamp(18px, 3.5vw, 28px); margin:0; letter-spacing:.3px}
+    .card{
+      background:color-mix(in oklab, var(--panel) 92%, black 8%);
+      border:1px solid #1f2937;
+      border-radius:18px; padding:18px; box-shadow:0 8px 30px #0006;
+    }
+    .row{ display:flex; gap:14px; flex-wrap:wrap; align-items:center }
+    .controls{ display:flex; gap:10px; flex-wrap:wrap }
+    button, .btn{ 
+      background:#1f2937; border:1px solid #2b3646; color:var(--text);
+      padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+      transition:.15s ease; user-select:none
+    }
+    button:hover{ transform:translateY(-1px); box-shadow:0 6px 14px #0006 }
+    button.primary{ background:var(--accent); color:#00343c; border-color:#22d3ee }
+    button.good{ background:var(--good); color:#05320f; border-color:#22c55e }
+    button.ghost{ background:transparent; border-color:#2b3646 }
+    button[disabled]{ opacity:.6; cursor:not-allowed; transform:none; box-shadow:none }
+    label{ color:var(--muted); font-size:14px }
+    input[type="checkbox"]{ transform:scale(1.2); vertical-align:middle; margin-right:6px }
 
+    .display{
+      display:grid; gap:16px; grid-template-columns: 1fr; align-items:start
+    }
+    .sentence{
+      font-size:clamp(22px, 4vw, 32px); line-height:1.45; background:#0b1220; border:1px dashed #273246;
+      padding:16px; border-radius:14px;
+    }
+    .meta{ color:var(--muted); font-size:13px; display:flex; gap:16px; flex-wrap:wrap }
+    .video-wrap{ display:none }
+    video{ width:100%; max-height:60vh; border-radius:14px; background:black }
+
+    .dataset-tip{ color:var(--muted); font-size:13px; margin-top:6px }
+    .footer{ color:#9aa7bd; font-size:12px; margin-top:8px }
+    .kbd{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#101828; border:1px solid #2b3646; padding:2px 6px; border-radius:6px }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="row">
+      <h1>수화통역 연습 — 문장 → 영상 (자동 음성, 전체 랜덤)</h1>
+      <div class="controls">
+        <button id="startBtn" class="primary">시작하기</button>
+        <button id="reSpeakBtn" title="문장 다시 읽기">🔊 다시 듣기</button>
+        <button id="revealBtn" class="good" title="정답 확인: 영상 보기">정답 확인 (영상)</button>
+        <button id="nextBtn" title="다음 문장">다음 ▶</button>
+      </div>
+    </header>
+
+    <section class="card display">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:14px">
+          <label><input type="checkbox" id="shuffleAll" checked> 시작 시 <b>전체 랜덤</b></label>
+          <label><input type="checkbox" id="autoVoice" checked> 시작하면 <b>자동 음성</b></label>
+          <label><input type="checkbox" id="loopEnd" checked> 끝나면 다시 랜덤 시작</label>
+        </div>
+        <div class="meta">
+          <span>진행: <span id="pos">0</span>/<span id="total">0</span></span>
+          <span>음성: <span id="voiceName">—</span></span>
+        </div>
+      </div>
+
+      <div class="sentence" id="sentence">상단의 <span class="kbd">시작하기</span>를 눌러 주세요.</div>
+
+      <div class="video-wrap" id="videoWrap">
+        <video id="video" playsinline preload="metadata" controls></video>
+      </div>
+
+      <div class="footer">
+        단축키: <span class="kbd">Space</span> 정답 확인 / <span class="kbd">→</span> 다음 / <span class="kbd">R</span> 다시 듣기
+      </div>
+    </section>
+
+    <p class="dataset-tip">데이터 추가는 <b>아래 스크립트 상단의 <code>DATA</code></b> 배열에 <code>{ k: "문장", src: "영상주소.mp4" }</code> 형식으로 한 줄씩 넣어주세요.</p>
+  </div>
+
+  <script>
+    /* ==========================
+       ✨ 데이터셋 (여기에만 추가/수정)
+       - k: 문장(문장이 먼저 노출)
+       - src: 영상 mp4 URL (정답 확인 시 자동 재생)
+       ⚠️ 일부 사이트(mp4)가 "다운로드 전용" 헤더를 쓰면 브라우저 내 재생이 막힐 수 있습니다.
+          그런 경우 Google Drive(미리보기 링크) 또는 자체 서버/호스팅, 혹은 다른 스트리밍 가능한 링크를 사용하세요.
+    ========================== */
+    const DATA = [
+      { k: "(법을) 지키다", ex: "가: ○○아, 우리 학생 때 두발 규정 때문에 전교생이 다 똑같이 단발이었잖아. 기억나? 나: 맞아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/Srskz9UtpzlEfT9W.mp4" },
+{ k: "아이고, 아뿔싸", ex: "가: 오후에 비가 내린다는데, 우산 챙겼어? 나: 아이고. 깜빡했네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/a3mFRN8ardsnitaQ.mp4" },
+{ k: "만들다", ex: "가: 아들아, 뭘 만들고 있어? 나: 찰흙으로 코끼리를 만들고 있어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/cgnNabMUEnwURmU2.mp4" },
+{ k: "만들다", ex: "가: 이 빵 정말 맛있다. 시장에서 산 거야? 나: 아니야, 내가 직접 만들었어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ahoLAebuSHQO0NQP.mp4" },
+{ k: "만들다", ex: "가: 공장에서 무슨 일 해? 나: 나는 신발을 만들어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/AplPxMQRPrXgcZMJ.mp4" },
+{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 농학교 가려면 여기서 직진하는 거 맞지요? 나: 네, 맞아요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/umwijan0HaEjeAgA.mp4" },
+{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 얼마 전에 ○○이가 이혼했데. 나: 정말이야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/oSRpZpB9kLUcIWqI.mp4" },
+{ k: "-지만, -으나, -는데", ex: "가: 네가 먼저, ○○이에게 대시했지? 나: 맞아, 근데 후회하고 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/0BtnDbXm5CCssIpl.mp4" },
+{ k: "-지만, -으나, -는데", ex: "가: 오늘 수업 발표 네가 맡은 거 맞지? 나: 응, 맞아. 근데 내가 몸이 안 좋아서 ○○이에게 넘겼어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/hVXO3QJxOnZMZAXI.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 너는 영어를 배우는 목적이 뭐야? 나: 나는 나중에 해외를 다니며 여러 나라 사람과 대화하고 싶어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/owUtPbjLJ39Y2Ock.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 너는 수어 행사에 참여한 목적이 뭐야? 나: 나는 농인과 어울리고 싶어서 참여했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xVbPT6uk4f0HtQ7U.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 여러분들은 여기 왜 모여 있나요? 나: 네, 봉사 활동을 하려고요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/HTTHtkcIHI8Hfws0.mp4" },
+{ k: "어떻게 했어?", ex: "가: 너 집 멀잖아. 어떻게 왔어? 나: 어젯밤에 친구 집에서 자고 온 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/k4dNG6O8U3Pk8p7V.mp4" },
+{ k: "어떻게 했어?", ex: "가: ○○이의 마음을 어떻게 사로잡았어? 나: 너에게 말해 주기 어려워.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/zavgdWyu6oa6hkS3.mp4" },
+{ k: "비밀, 기밀", ex: "가: ○○이가 이혼했다는 것이 사실이야? 나: 아니, 이혼 절차 진행 중인데 비밀이야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rhy2SD3dEWwszr63.mp4" },
+{ k: "수고, 수고하다, 노고", ex: "가: 정말 죄송하지만, 오늘 행사가 취소되었습니다. 나: 그럼 내가 여기까지 수고해서 온 게 뭐가 되나? 미리 문자라도 보내줬다면 좋았을 텐데.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wSDcAx5P0LUzeBQe.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 얘, ○○이는 어디 갔어? 나: 아마도 화장실 간 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/FAyqD2LL8RbnXPTD.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 전국 농아인 체육대회 10월에 개최하는 거 맞아? 나: 응, 아마도 맞을 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/10Ex1Ditn8eKSzHX.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 얘, 저 사람은 누구야? 나: 아마 ○○이 부인일 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/6LzcFGQBdPr1tEuL.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 너 일이 몇 시에 끝날 것 같아? 나: 아마 어림잡아 4시쯤 끝날 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/iHrzwYOiT7dRTFfL.mp4" },
+{ k: "이름, 성명, 성함, 명칭", ex: "가: 너는 이름이 정말 예쁘다. 누가 지어 주셨니? 나: 할아버지께서 지어 주셨어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/UIrG7IwXdNr60Q9R.mp4" },
+{ k: "있다", ex: "가: ○○이가 자기는 애인 없다고 말하던데? 나: 아니야, 걔 애인 있어!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/nd61wVlPkFz3I0FD.mp4" },
+{ k: "조회", ex: "가: 너 조회에서 안 보이던데? 나: 배탈이 나서 화장실에 다녀왔습니다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/7D9WesbAhSwqapg7.mp4" },
+{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "가: ○○이가 내가 틀렸다며 자꾸 트집을 잡아서 아주 기분이 나빠! 나: 맞아, 나도 똑같이 당했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Wxcy9opkEF4piTAo.mp4" },
+{ k: "하다[행동]", ex: "가: 여보, 나 몸이 여기저기 뻐근하고 너무 피곤해서 청소하기가 힘들어요. 나: 하지 마요, 청소는 내가 할 테니 당신은 쉬어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/YKJoaAEAdm5Ky0sW.mp4" },
+{ k: "하다[행동]", ex: "가: 서랍에 보니 내 팬티가 부족해. 빨래 안 해? 나: 아! 해야지.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/j1oEWkWTNv3Vb6gI.mp4" },
+{ k: "하다[행동]", ex: "가: 너 그거 안 먹을 거지? 그럼 내가 먹는다! 나: 아니야, 먹을 거야!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/cU75dko18xCXPPtB.mp4" },
+{ k: "하다[행동]", ex: "가: 너는 이번 여행에 왜 안 가? 나: 아니야, 나도 가!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ThJthhhiwv9AXzkN.mp4" },
+{ k: "호텔, 모텔", ex: "가: 이 호텔은 방이 영 아닌 거 같아. 우리 다른 곳으로 옮기자. 나: 안돼, 이미 돈을 냈잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/RD1KyYbkSVKYaZ80.mp4" },
+{ k: "지우다, 삭제, 삭제하다", ex: "가: 영상에서 이 부분은 지울까? 나: 아니야, 그대로 살려 놔.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/J5wNMnSFjkGSaHL4.mp4" },
+{ k: "서점, 책방", ex: "가: 저기 서점이 있었는데, 왜 비어 있지? 나: 예전에 이미 폐업했잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wdVwdksyDAQfFcI8.mp4" },
+{ k: "서점, 책방", ex: "가: 저기요, 서점은 몇 층인가요? 나: 4층이요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rvzRFNDrmJMusTDU.mp4" },
+{ k: "인맥, 연줄", ex: "가: ○○이는 그 회사에 어떻게 취직한 거야? 나: 사실은 인맥으로 취업했대.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/qmGQ5XpUF0x1cOof.MP4" },
+{ k: "붕대, 붕대를 감다", ex: "가: 야, 붕대 왜 했어? 나: 어제 계단에서 넘어져서.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ruoq1mACRanRC5jo.MP4" },
+
+    ];
+
+    /* ============== 상태 ============== */
+    let order = [...DATA.keys()];
+    let idx = 0;
+    let started = false;
+    let voices = [];
+    let selectedVoice = null;
+
+    /* ============== 요소 ============== */
+    const el = (id)=>document.getElementById(id);
+    const startBtn = el('startBtn');
+    const reSpeakBtn = el('reSpeakBtn');
+    const revealBtn = el('revealBtn');
+    const nextBtn = el('nextBtn');
+    const shuffleAll = el('shuffleAll');
+    const autoVoice = el('autoVoice');
+    const loopEnd = el('loopEnd');
+    const sentence = el('sentence');
+    const pos = el('pos');
+    const total = el('total');
+    const voiceName = el('voiceName');
+    const videoWrap = el('videoWrap');
+    const video = el('video');
+
+    total.textContent = DATA.length;
+
+    /* ============== 유틸 ============== */
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
+
+    function currentItem(){ return DATA[ order[idx] ]; }
+
+    function updateView(){
+      const item = currentItem();
+      sentence.textContent = item.k;
+      pos.textContent = (idx+1);
+      video.pause();
+      video.currentTime = 0;
+      videoWrap.style.display = 'none';
+      revealBtn.disabled = false;
+      // 자동 음성
+      if (autoVoice.checked) speak(item.k);
+    }
+
+    /* ============== 음성 (Web Speech Synthesis) ============== */
+    function loadVoices(){
+      voices = speechSynthesis.getVoices();
+      // ko-KR 우선, 그 다음 한글/한국어 이름 포함, 없으면 기본
+      selectedVoice = voices.find(v=>/ko|Korean|한국어/i.test(v.lang+" "+v.name)) || voices[0] || null;
+      voiceName.textContent = selectedVoice ? `${selectedVoice.name}` : '기본(브라우저)';
+    }
+    loadVoices();
+    if (typeof speechSynthesis !== 'undefined'){
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    let speakQueue = null;
+    function speak(text){
+      try{ speechSynthesis.cancel(); }catch(e){}
+      if(!text) return;
+      const u = new SpeechSynthesisUtterance(text);
+      if (selectedVoice) u.voice = selectedVoice;
+      u.lang = (selectedVoice?.lang) || 'ko-KR';
+      u.rate = 1.0; // 말하기 속도
+      u.pitch = 1.0;
+      speakQueue = u;
+      speechSynthesis.speak(u);
+    }
+
+    /* ============== 이벤트 ============== */
+    startBtn.addEventListener('click', ()=>{
+      if (shuffleAll.checked) shuffle(order);
+      idx = 0; started = true;
+      updateView();
+      startBtn.textContent = '처음부터 다시';
+    });
+
+    reSpeakBtn.addEventListener('click', ()=>{
+      if(!started) return;
+      speak(currentItem().k);
+    });
+
+    revealBtn.addEventListener('click', ()=>{
+      if(!started) return;
+      const item = currentItem();
+      video.src = item.src;
+      videoWrap.style.display = 'block';
+      // 사용자 상호작용 이후이므로 자동재생 허용됨
+      video.play().catch(()=>{ /* 자동재생 실패 시 무시 */ });
+      revealBtn.disabled = true;
+    });
+
+    nextBtn.addEventListener('click', ()=>{
+      if(!started) return;
+      if (idx < order.length-1){
+        idx++;
+        updateView();
+      } else {
+        if (loopEnd.checked){
+          shuffle(order); idx = 0; updateView();
+        }
+      }
+    });
+
+    // 키보드 단축키: Space=정답, →=다음, R=다시듣기
+    window.addEventListener('keydown', (e)=>{
+      if(e.target && ['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+      if(e.code==='Space'){ e.preventDefault(); revealBtn.click(); }
+      else if(e.code==='ArrowRight'){ e.preventDefault(); nextBtn.click(); }
+      else if(e.key.toLowerCase()==='r'){ e.preventDefault(); reSpeakBtn.click(); }
+    });
+
+    // 페이지 이탈 시 음성 정리
+    window.addEventListener('beforeunload', ()=>{
+      try{ speechSynthesis.cancel(); }catch(e){}
+    });
+
+    // 초기 상태 표시
+    if(DATA.length===0){
+      sentence.innerHTML = '데이터가 비어 있습니다. <code>DATA</code> 배열에 항목을 추가하세요.';
+    }
+  </script>
+</body>
+</html>
