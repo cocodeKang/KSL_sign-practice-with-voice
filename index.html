@@ -3,273 +3,378 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>수화통역 연습 | 문장 → 영상</title>
+  <title>수화통역 연습 | 단어/문장 선택</title>
   <style>
-    :root{
-      --bg:#0f172a;      /* slate-900 */
-      --panel:#111827;   /* gray-900 */
-      --muted:#94a3b8;   /* slate-400 */
-      --text:#e5e7eb;    /* gray-200 */
-      --accent:#22d3ee;  /* cyan-400 */
-      --good:#22c55e;    /* green-500 */
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;
-      background:linear-gradient(180deg, #0b1324 0%, var(--bg) 60%);
-      color:var(--text);
-      display:flex; align-items:center; justify-content:center;
+    .screen { display: none; width: 100%; max-width: 1000px; padding: 20px; }
+    .active { display: block; }
+    h1 { text-align: center; }
+    .choice { display: flex; gap: 20px; justify-content: center; margin-top: 40px; }
+    button {
+      background: #1f2937;
+      border: 1px solid #2b3646;
+      color: #e5e7eb;
+      padding: 20px 40px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 20px;
     }
-    .app{ width:min(1100px, 96vw); margin:auto; }
-    header{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:12px;}
-    header h1{font-size:clamp(18px, 3.5vw, 28px); margin:0; letter-spacing:.3px}
-    .card{
-      background:color-mix(in oklab, var(--panel) 92%, black 8%);
-      border:1px solid #1f2937;
-      border-radius:18px; padding:18px; box-shadow:0 8px 30px #0006;
-    }
-    .row{ display:flex; gap:14px; flex-wrap:wrap; align-items:center }
-    .controls{ display:flex; gap:10px; flex-wrap:wrap }
-    button, .btn{ 
-      background:#1f2937; border:1px solid #2b3646; color:var(--text);
-      padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
-      transition:.15s ease; user-select:none
-    }
-    button:hover{ transform:translateY(-1px); box-shadow:0 6px 14px #0006 }
-    button.primary{ background:var(--accent); color:#00343c; border-color:#22d3ee }
-    button.good{ background:var(--good); color:#05320f; border-color:#22c55e }
-    button.ghost{ background:transparent; border-color:#2b3646 }
-    button[disabled]{ opacity:.6; cursor:not-allowed; transform:none; box-shadow:none }
-    label{ color:var(--muted); font-size:14px }
-    input[type="checkbox"]{ transform:scale(1.2); vertical-align:middle; margin-right:6px }
-
-    .display{
-      display:grid; gap:16px; grid-template-columns: 1fr; align-items:start
-    }
-    .sentence{
-      font-size:clamp(22px, 4vw, 32px); line-height:1.45; background:#0b1220; border:1px dashed #273246;
-      padding:16px; border-radius:14px;
-    }
-    .meta{ color:var(--muted); font-size:13px; display:flex; gap:16px; flex-wrap:wrap }
-    .video-wrap{ display:none }
-    video{ width:100%; max-height:60vh; border-radius:14px; background:black }
-
-    .dataset-tip{ color:var(--muted); font-size:13px; margin-top:6px }
-    .footer{ color:#9aa7bd; font-size:12px; margin-top:8px }
-    .kbd{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#101828; border:1px solid #2b3646; padding:2px 6px; border-radius:6px }
+    button:hover { background: #22d3ee; color: #00343c; }
+    video { width: 100%; max-height: 60vh; border-radius: 14px; background: black }
+    .sentence { font-size: 24px; margin: 20px 0; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header class="row">
-      <h1>수화통역 연습 — 문장 → 영상 (자동 음성, 전체 랜덤)</h1>
-      <div class="controls">
-        <button id="startBtn" class="primary">시작하기</button>
-        <button id="reSpeakBtn" title="문장 다시 읽기">🔊 다시 듣기</button>
-        <button id="revealBtn" class="good" title="정답 확인: 영상 보기">정답 확인 (영상)</button>
-        <button id="nextBtn" title="다음 문장">다음 ▶</button>
-      </div>
-    </header>
-
-    <section class="card display">
-      <div class="row" style="justify-content:space-between">
-        <div class="row" style="gap:14px">
-          <label><input type="checkbox" id="shuffleAll" checked> 시작 시 <b>전체 랜덤</b></label>
-          <label><input type="checkbox" id="autoVoice" checked> 시작하면 <b>자동 음성</b></label>
-          <label><input type="checkbox" id="loopEnd" checked> 끝나면 다시 랜덤 시작</label>
-        </div>
-        <div class="meta">
-          <span>진행: <span id="pos">0</span>/<span id="total">0</span></span>
-          <span>음성: <span id="voiceName">—</span></span>
-        </div>
-      </div>
-
-      <div class="sentence" id="sentence">상단의 <span class="kbd">시작하기</span>를 눌러 주세요.</div>
-
-      <div class="video-wrap" id="videoWrap">
-        <video id="video" playsinline preload="metadata" controls></video>
-      </div>
-
-      <div class="footer">
-        단축키: <span class="kbd">Space</span> 정답 확인 / <span class="kbd">→</span> 다음 / <span class="kbd">R</span> 다시 듣기
-      </div>
-    </section>
-
-    <p class="dataset-tip">데이터 추가는 <b>아래 스크립트 상단의 <code>DATA</code></b> 배열에 <code>{ k: "문장", src: "영상주소.mp4" }</code> 형식으로 한 줄씩 넣어주세요.</p>
+  <!-- 첫 화면 -->
+  <div id="home" class="screen active">
+    <h1>수화통역 연습</h1>
+    <div class="choice">
+      <button onclick="startMode('word')">단어 연습</button>
+      <button onclick="startMode('sentence')">문장 연습</button>
+    </div>
   </div>
 
-  <script>
-    /* ==========================
-       ✨ 데이터셋 (여기에만 추가/수정)
-       - k: 문장(문장이 먼저 노출)
-       - src: 영상 mp4 URL (정답 확인 시 자동 재생)
-       ⚠️ 일부 사이트(mp4)가 "다운로드 전용" 헤더를 쓰면 브라우저 내 재생이 막힐 수 있습니다.
-          그런 경우 Google Drive(미리보기 링크) 또는 자체 서버/호스팅, 혹은 다른 스트리밍 가능한 링크를 사용하세요.
-    ========================== */
-    const DATA = [
-      { k: "(법을) 지키다", ex: "가: ○○아, 우리 학생 때 두발 규정 때문에 전교생이 다 똑같이 단발이었잖아. 기억나? 나: 맞아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/Srskz9UtpzlEfT9W.mp4" },
+  <!-- 학습 화면 -->
+  <div id="app" class="screen">
+    <h1 id="modeTitle"></h1>
+    <div class="sentence" id="sentence">시작하기를 눌러주세요.</div>
+    <video id="video" playsinline preload="metadata" controls style="display:none;"></video>
+    <div style="margin-top:20px; display:flex; gap:10px; justify-content:center;">
+      <button id="startBtn">시작하기</button>
+      <button id="reSpeakBtn">🔊 다시 듣기</button>
+      <button id="revealBtn">정답 확인</button>
+      <button id="nextBtn">다음 ▶</button>
+    </div>
+  </div>
+
+<script>
+  /* 공용 카드 데이터 (단어=k, 문장=ex) */
+  const CARDS = [
+   { k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "나는 엄마가 시키는 심부름을 잘한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/3hlvgmd9TL18wXbg.mp4" },
+{ k: "싸우다, 다투다, 말다툼, 말다툼하다, 논쟁, 논쟁하다, 언쟁, 언쟁하다", ex: "나와 ○○이는 서로 의견이 달라 항상 다툰다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/Ab5WRiRiAxSnDLPk.mp4" },
+{ k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "내 말에 순순히 따르는 아들과 딸을 보니 너무 예쁘다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/dVeefaM86pOHthbZ.mp4" },
+{ k: "통일, 통일하다, 통합, 통합하다, 합치다", ex: "나는 삼국 통일에 대한 역사를 배우고 나니, 삼국 시대의 역사를 제대로 알게 되었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/fXdsBADFW4PZnOKP.mp4" },
+{ k: "싸우다, 다투다, 말다툼, 말다툼하다, 논쟁, 논쟁하다, 언쟁, 언쟁하다", ex: "우리 첫째 딸과 둘째 딸은 사이좋게 지내다가도 티격태격 싸우곤 한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/gD81ywiSSysVg6Mu.mp4" },
+{ k: "싸우다, 다투다, 말다툼, 말다툼하다, 논쟁, 논쟁하다, 언쟁, 언쟁하다", ex: "나는 어린 시절 ○○이와 항상 말다툼을 했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/gsiVffDMWkK1Qi8y.mp4" },
+{ k: "(법을) 지키다", ex: "학교 앞에서 운전을 할 때는 도로교통법에 따라 서행을 해야 한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/hgijHqxB57dsH5vr.mp4" },
+{ k: "통일, 통일하다, 통합, 통합하다, 합치다", ex: "내일 중요한 행사가 있으니, 복장은 검은색 정장으로 통일해 주세요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/I4iWvZK07X60Y27N.mp4" },
+{ k: "통일, 통일하다, 통합, 통합하다, 합치다", ex: "과거 독일은 전쟁으로 인한 동서 분단국이었지만, 지금은 통일 국가이다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/ojnddKPdKjP4q353.mp4" },
+{ k: "통일, 통일하다, 통합, 통합하다, 합치다", ex: "나는 친구들과 함께 어디로 여행 가면 좋을지 논의한 끝에 의견을 모아 여행지를 결정했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/omRzxRQJrKVZJKTJ.mp4" },
+{ k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "○○이는 부모님의 말씀을 잘 듣는다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/P9kuRQRyoyZ2WDsZ.mp4" },
+{ k: "(법을) 지키다", ex: "가: ○○아, 우리 학생 때 두발 규정 때문에 전교생이 다 똑같이 단발이었잖아. 기억나? 나: 맞아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/Srskz9UtpzlEfT9W.mp4" },
+{ k: "순종하다, 복종, 복종하다, 순응, 순응하다, 순순히 따르다", ex: "예전에 내가 어렸을 때에는 언니가 물을 가져오라고 시키면 순진한 마음에 순순히 가져다주었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/tGhgFz5O58ga2ctu.mp4" },
+{ k: "싸우다, 다투다, 말다툼, 말다툼하다, 논쟁, 논쟁하다, 언쟁, 언쟁하다", ex: "나와 여동생은 성격이 달라서 자주 다툰다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202405/w0BdkV6pmnGznP6k.mp4" },
+{ k: "봐주다, 져 주다, 상대에게 맞추다", ex: "나는 기내에서 화를 내는 승객의 기분에 맞춰 응대했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/dHYBtzAcZeDTaYhL.mp4" },
+{ k: "종", ex: "나는 딸과 걷던 중에 딸이 종을 사달라고 졸라서 딸에게 종을 사 주었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/LJnoOaDhWmp79ayX.mp4" },
+{ k: "아부, 아부하다, 아첨하다, 굽실거리다", ex: "○○이는 일할 때 상사에게 아부가 심하더라.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/oLFdKEJ7BAQhoMNB.mp4" },
+{ k: "봐주다, 져 주다, 상대에게 맞추다", ex: "○○이가 우리 집에 왔을 때 나는 ○○이에게 계속 맞춰 주었다. 그랬더니, ○○이가 가고 나서 너무 힘들었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/PN446U3Fh4BHhDVL.mp4" },
+{ k: "종", ex: "새해를 맞아 제야의 종소리가 울려 퍼졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/q7oplifUF3jxiflF.mp4" },
+{ k: "봐주다, 져 주다, 상대에게 맞추다", ex: "나는 내 아내 성격을 잘 알아. 그래서 내가 아내에게 맞추지.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/slJHkXJEfov06jI8.mp4" },
+{ k: "아부, 아부하다, 아첨하다, 굽실거리다", ex: "너는 왜 그렇게 나한테 아부하니? 나는 그런 거 신경 쓰지 않고 나답게 행동할 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202410/XAVBRLvv2ymdEOBj.mp4" },
+{ k: "수어를 그만하다", ex: "잔소리 좀 그만해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/254YCP5enTFOOQof.mp4" },
+{ k: "아이고, 아뿔싸", ex: "나는 축구 경기에서, 어렵게 골대 앞까지 가서 슛을 날렸는데 공이 골대를 빗겨 나가고 말았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/4xPXgFiK9GgfH9Lb.mp4" },
+{ k: "언니, 누나", ex: "나는 남동생은 있고 언니는 없다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/68EphdW6QNnndXSG.mp4" },
 { k: "아이고, 아뿔싸", ex: "가: 오후에 비가 내린다는데, 우산 챙겼어? 나: 아이고. 깜빡했네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/a3mFRN8ardsnitaQ.mp4" },
-{ k: "만들다", ex: "가: 아들아, 뭘 만들고 있어? 나: 찰흙으로 코끼리를 만들고 있어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/cgnNabMUEnwURmU2.mp4" },
+{ k: "언니, 누나", ex: "우리 언니는 항공사에서 일한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/aPHbBWANGd2ROYhJ.mp4" },
+{ k: "아이고, 아뿔싸", ex: "나는 비행기를 타고 나서야 핸드폰 충전기를 집에 두고 온 것이 생각났다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/CpIXrdKcNgjECYYN.mp4" },
+{ k: "수어를 그만하다", ex: "돈 빌려 가고 안 갚은 거, 잔말 말고 지금 갚아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/GHWoTlfRAaNIYsvp.mp4" },
+{ k: "아이고, 아뿔싸", ex: "나는 라면을 끓여서 먹다가 계란을 넣는 것을 깜박했다는 걸 깨달았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/hHjAX8dOCpXMUKcG.mp4" },
+{ k: "언니, 누나", ex: "우리 언니는 잔소리 대마왕이다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/KAzk0Lpg8kVYKDIE.mp4" },
+{ k: "먹보, 많이 먹다, 처먹다", ex: "○○이가 커피를 4잔이나 마셨다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/lCAEBYA1ZeyBzynh.mp4" },
+{ k: "먹보, 많이 먹다, 처먹다", ex: "저녁 먹어 놓고 이 밤에 또 먹어? 먹보네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/nIg0wkDaoFbU9mFL.mp4" },
+{ k: "먹보, 많이 먹다, 처먹다", ex: "뷔페에서, 음식을 가지고 자리에 돌아와 보니 ○○이의 접시에 음식이 한가득이었다. ○○이는 정말 많이 먹는다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/nw43FF5GEGE9nsiG.mp4" },
+{ k: "수어를 그만하다", ex: "너는 말 좀 그만하고 공부해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/roB7Af8aAmBLbIqs.mp4" },
+{ k: "언니, 누나", ex: "우리 언니랑 나랑 얼굴이 똑같다고? 그런 말은 처음 들어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/RPeMYLOXzDIFD77p.mp4" },
+{ k: "먹보, 많이 먹다, 처먹다", ex: "○○이랑 음식 많이 먹기 시합하기로 했어? 그러지 마! 걔 정말 많이 먹어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/sPPr5naW4TNYnoQd.mp4" },
+{ k: "수어를 그만하다", ex: "횡설수설하지 말고 솔직히 말해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202411/xG9fIIXx55ZUK7jW.mp4" },
+{ k: "궁리, 꿍꿍이", ex: "나는 첫눈에 반한 그의 마음을 사로잡기 위해 어떻게 해야 할지 궁리하느라 밤을 새웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/080f5YG8elR0r13g.mp4" },
+{ k: "-지만, -으나, -는데", ex: "가: 네가 먼저, ○○이에게 대시했지? 나: 맞아, 근데 후회하고 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/0BtnDbXm5CCssIpl.mp4" },
+{ k: "궁리, 꿍꿍이", ex: "우리가 축구 시합에서 지고 있어 감독님은 궁리 끝에 ○○ 선수를 투입했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/0NDCPcOTAK90V1QX.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 전국 농아인 체육대회 10월에 개최하는 거 맞아? 나: 응, 아마도 맞을 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/10Ex1Ditn8eKSzHX.mp4" },
+{ k: "비밀, 기밀", ex: "○○이가 우리 회사의 기밀문서를 외국 기업에 유출했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/10L3D7vDqR7Sd6ug.mp4" },
+{ k: "수고, 수고하다, 노고", ex: "저기요, 저 먼저 가보겠습니다. 수고하세요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/14HrWDMMCin4f4Td.mp4" },
+{ k: "이삿짐", ex: "추천할 만한 이삿짐센터 있으면 전화번호 좀 알려 줘.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/216SAWPi21kjxK0M.mp4" },
+{ k: "호텔, 모텔", ex: "나는 ○○이와 함께 술을 마시다가 ○○이가 취해서 호텔에 데려다주었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/2Dujy7NlHNpdzqH2.mp4" },
+{ k: "이용하다, 활용하다, 이용, 활용", ex: "너 남은 콜라 부어서 청소하는 거야? 정말 아이디어 활용 잘한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/2QeCcvPvPdTlBNV5.mp4" },
+{ k: "생기다, 자라나다", ex: "너 갑자기 왜 이렇게 멋있게 입었어? 여자 친구 생겼지?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/3lNgbCp2S4PcjQA2.mp4" },
+{ k: "붙이다, 붙다", ex: "나는 벽에 붙어 있는 대학교 동아리 홍보지를 찬찬히 둘러보았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4dX2lPGNWsnQEb3C.mp4" },
+{ k: "호텔, 모텔", ex: "나는 호텔에서는 잠이 안 와. 나는 호텔이랑 안 맞아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4k9wgF1Y0PA6V3Zo.mp4" },
+{ k: "제목, 주제", ex: "얼마 전에 농아인 연극단에서 새롭게 선보인 공연 주제가 뭐야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4n1JK4qWbZap8rOa.mp4" },
+{ k: "위험, 위험하다, 불안전, 불안전하다, 불안, 불안하다, 위기", ex: "나는 딸이 자전거를 처음 타는 모습이 불안해 보였다. 딸이 혹시 자전거에서 떨어지면 받쳐주려고 뒤쫓아 다녔다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4O7mENafRACBSrWt.mp4" },
+{ k: "바닥", ex: "저기요, 침대에서 주무시면 됩니다. 저는 바닥에서 자도 괜찮아요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4sC6AGeNyZQ5Owv8.mp4" },
+{ k: "사고, 사건, 재해", ex: "우리 집 근처에서 살인 사건이 일어났다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/4SEz2mggVu1vjReU.mp4" },
+{ k: "줄 서다", ex: "얘, 새치기하지 말고 바르게 줄 서.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/5lcIkOKnuc2BBnGj.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 얘, 저 사람은 누구야? 나: 아마 ○○이 부인일 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/6LzcFGQBdPr1tEuL.mp4" },
+{ k: "조회", ex: "가: 너 조회에서 안 보이던데? 나: 배탈이 나서 화장실에 다녀왔습니다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/7D9WesbAhSwqapg7.mp4" },
+{ k: "방법", ex: "수화통역사 시험에 합격할 방법이 있을까?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/7hrkcLPzP19Pz2xe.mp4" },
+{ k: "있다", ex: "칫솔 사려고? 사지 마. 우리 집에 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/7ufwMOxxqM56iHyN.mp4" },
+{ k: "인기, 인기가 있다, 인기가 많다", ex: "어제 개봉한 영화가 매진 행렬을 이어가며 인기를 누리고 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/9EASOPM2LnWoLh0k.mp4" },
+{ k: "인기, 인기가 있다, 인기가 많다", ex: "우리 회사 앞에 식당은 맛이 좋아 인기가 많아서 손님들이 많이 몰린다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/9NeWIdzapwQHqYk5.mp4" },
+{ k: "악용하다, 이용하다, 악용, 이용", ex: "자꾸 돈 빌려 가면서 나 이용해 먹는 거 나를 만만하게 보고 그러는 거니?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/9qa3Sbqzk5S5HtbO.mp4" },
+{ k: "-지만, -으나, -는데", ex: "나는 농아인 청년회장을 맡았지만, 개인 사정으로 포기하게 되었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/9QHV9UlrvQcedyc6.mp4" },
+{ k: "만들다", ex: "저기요, 집에 센서 등을 설치할 수 있을까요?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/aaobevaqES7o4IFq.mp4" },
 { k: "만들다", ex: "가: 이 빵 정말 맛있다. 시장에서 산 거야? 나: 아니야, 내가 직접 만들었어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ahoLAebuSHQO0NQP.mp4" },
 { k: "만들다", ex: "가: 공장에서 무슨 일 해? 나: 나는 신발을 만들어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/AplPxMQRPrXgcZMJ.mp4" },
-{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 농학교 가려면 여기서 직진하는 거 맞지요? 나: 네, 맞아요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/umwijan0HaEjeAgA.mp4" },
-{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 얼마 전에 ○○이가 이혼했데. 나: 정말이야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/oSRpZpB9kLUcIWqI.mp4" },
-{ k: "-지만, -으나, -는데", ex: "가: 네가 먼저, ○○이에게 대시했지? 나: 맞아, 근데 후회하고 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/0BtnDbXm5CCssIpl.mp4" },
-{ k: "-지만, -으나, -는데", ex: "가: 오늘 수업 발표 네가 맡은 거 맞지? 나: 응, 맞아. 근데 내가 몸이 안 좋아서 ○○이에게 넘겼어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/hVXO3QJxOnZMZAXI.mp4" },
-{ k: "목적, 목표, 꿈", ex: "가: 너는 영어를 배우는 목적이 뭐야? 나: 나는 나중에 해외를 다니며 여러 나라 사람과 대화하고 싶어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/owUtPbjLJ39Y2Ock.mp4" },
-{ k: "목적, 목표, 꿈", ex: "가: 너는 수어 행사에 참여한 목적이 뭐야? 나: 나는 농인과 어울리고 싶어서 참여했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xVbPT6uk4f0HtQ7U.mp4" },
-{ k: "목적, 목표, 꿈", ex: "가: 여러분들은 여기 왜 모여 있나요? 나: 네, 봉사 활동을 하려고요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/HTTHtkcIHI8Hfws0.mp4" },
-{ k: "어떻게 했어?", ex: "가: 너 집 멀잖아. 어떻게 왔어? 나: 어젯밤에 친구 집에서 자고 온 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/k4dNG6O8U3Pk8p7V.mp4" },
-{ k: "어떻게 했어?", ex: "가: ○○이의 마음을 어떻게 사로잡았어? 나: 너에게 말해 주기 어려워.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/zavgdWyu6oa6hkS3.mp4" },
-{ k: "비밀, 기밀", ex: "가: ○○이가 이혼했다는 것이 사실이야? 나: 아니, 이혼 절차 진행 중인데 비밀이야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rhy2SD3dEWwszr63.mp4" },
-{ k: "수고, 수고하다, 노고", ex: "가: 정말 죄송하지만, 오늘 행사가 취소되었습니다. 나: 그럼 내가 여기까지 수고해서 온 게 뭐가 되나? 미리 문자라도 보내줬다면 좋았을 텐데.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wSDcAx5P0LUzeBQe.mp4" },
-{ k: "아마, 혹시, 설마", ex: "가: 얘, ○○이는 어디 갔어? 나: 아마도 화장실 간 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/FAyqD2LL8RbnXPTD.mp4" },
-{ k: "아마, 혹시, 설마", ex: "가: 전국 농아인 체육대회 10월에 개최하는 거 맞아? 나: 응, 아마도 맞을 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/10Ex1Ditn8eKSzHX.mp4" },
-{ k: "아마, 혹시, 설마", ex: "가: 얘, 저 사람은 누구야? 나: 아마 ○○이 부인일 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/6LzcFGQBdPr1tEuL.mp4" },
-{ k: "아마, 혹시, 설마", ex: "가: 너 일이 몇 시에 끝날 것 같아? 나: 아마 어림잡아 4시쯤 끝날 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/iHrzwYOiT7dRTFfL.mp4" },
-{ k: "이름, 성명, 성함, 명칭", ex: "가: 너는 이름이 정말 예쁘다. 누가 지어 주셨니? 나: 할아버지께서 지어 주셨어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/UIrG7IwXdNr60Q9R.mp4" },
-{ k: "있다", ex: "가: ○○이가 자기는 애인 없다고 말하던데? 나: 아니야, 걔 애인 있어!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/nd61wVlPkFz3I0FD.mp4" },
-{ k: "조회", ex: "가: 너 조회에서 안 보이던데? 나: 배탈이 나서 화장실에 다녀왔습니다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/7D9WesbAhSwqapg7.mp4" },
-{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "가: ○○이가 내가 틀렸다며 자꾸 트집을 잡아서 아주 기분이 나빠! 나: 맞아, 나도 똑같이 당했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Wxcy9opkEF4piTAo.mp4" },
-{ k: "하다[행동]", ex: "가: 여보, 나 몸이 여기저기 뻐근하고 너무 피곤해서 청소하기가 힘들어요. 나: 하지 마요, 청소는 내가 할 테니 당신은 쉬어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/YKJoaAEAdm5Ky0sW.mp4" },
-{ k: "하다[행동]", ex: "가: 서랍에 보니 내 팬티가 부족해. 빨래 안 해? 나: 아! 해야지.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/j1oEWkWTNv3Vb6gI.mp4" },
+{ k: "지우다, 삭제, 삭제하다", ex: "여행을 마친 나는 휴대전화로 찍은 사진 중에 마음에 안 드는 것을 지웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/AUmlgouruTEUhYkz.mp4" },
+{ k: "신분증", ex: "나는 동안이라서 어느 주점에 가도 다 신분증 확인해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/auyWekeHDYzJMjEQ.mp4" },
+{ k: "평평하다", ex: "예전에는 시골 가는 길이 울퉁불퉁했는데, 지금은 평평하게 포장되어 운전이 편해졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/AYoX11Zere8uiyA3.mp4" },
+{ k: "붙이다, 붙다", ex: "내 얼굴이 나온 사진을 여기에 붙여 둔 이유가 뭐야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/B8Vi4DTo6tFbz7Hs.mp4" },
+{ k: "어울리다, 조화롭다", ex: "화려한 귀걸이와 목걸이가 너한테 잘 어울린다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/BdqCKKocu6dpsw7O.mp4" },
+{ k: "궁리, 꿍꿍이", ex: "나는 어떻게 하면 학원에 빠질 수 있을까 궁리하는 아들을 보면 골치가 아프다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/bLroQ2LLBuLu5lcs.mp4" },
+{ k: "줄 서다", ex: "나는 아파트 청약 추첨 신청을 위해 줄 서서 기다렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/BvSxfYrkvPQPi57K.mp4" },
+{ k: "만들다", ex: "가: 아들아, 뭘 만들고 있어? 나: 찰흙으로 코끼리를 만들고 있어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/cgnNabMUEnwURmU2.mp4" },
 { k: "하다[행동]", ex: "가: 너 그거 안 먹을 거지? 그럼 내가 먹는다! 나: 아니야, 먹을 거야!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/cU75dko18xCXPPtB.mp4" },
-{ k: "하다[행동]", ex: "가: 너는 이번 여행에 왜 안 가? 나: 아니야, 나도 가!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ThJthhhiwv9AXzkN.mp4" },
-{ k: "호텔, 모텔", ex: "가: 이 호텔은 방이 영 아닌 거 같아. 우리 다른 곳으로 옮기자. 나: 안돼, 이미 돈을 냈잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/RD1KyYbkSVKYaZ80.mp4" },
+{ k: "증가, 증가하다, 늘다, 늘어나다", ex: "○○이는 예전에 순진했는데 지금은 거짓말이 늘었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/CZBwFwWxBXa7F8sp.mp4" },
+{ k: "심다", ex: "나는 4월5일 식목일을 맞아 아빠와 함께 나무를 심었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/drSPu0aAa9CfK8BK.mp4" },
+{ k: "비밀, 기밀", ex: "우리 사귀는 사이인 거, 밝히지 말고 비밀로 하자.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/eBJ9tAXFOa2u5VRK.mp4" },
+{ k: "사고, 사건, 재해", ex: "나는 걸어가다가 출동하는 경찰차를 보고 무슨 사건이 일어난 건 아닌지 궁금했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/EWc7GwUz279oBqZI.mp4" },
+{ k: "이삿짐", ex: "내 방에 이삿짐이 여기저기 쌓여 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/EzXYI9qjhEzTHCih.mp4" },
+{ k: "신분증", ex: "딸아, 네가 이제 열여덟 살이 되었으니, 함께 주민등록증 발급 신청하러 가", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/fAuf5K6Ejrkp3DlA.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 얘, ○○이는 어디 갔어? 나: 아마도 화장실 간 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/FAyqD2LL8RbnXPTD.mp4" },
+{ k: "제목, 주제", ex: "예전에 우리같이 봤던 영화 제목이 뭐였지?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/fidYNJPLnNKbwnQM.mp4" },
+{ k: "이삿짐", ex: "나는 이삿짐을 혼자 꾸리기 힘들어서, 이삿짐 업체를 불렀다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/fvDJWfZ20uqTmBI6.mp4" },
+{ k: "수고, 수고하다, 노고", ex: "○○이는 여행 하는 동안 운전하느라 수고가 많았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/G7en9qmd1B5RLKJt.mp4" },
+{ k: "이름, 성명, 성함, 명칭", ex: "너, 예전에 만난 수어 이름이 ○○이인 사람 알지? 걔는 이름이 뭐였지?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/gbrhJJnWs4pa9sty.mp4" },
+{ k: "평평하다", ex: "탁자가 낡아 일어난 부분을 갈았더니 평평해졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/gduAwpVxAUTMOsqx.mp4" },
+{ k: "바닥", ex: "나는 현관문을 열자, 바닥에 개털이 여기저기 빠져있는 모습이 눈에 들어와, 아들에게 청소를 도와 달라고 말했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/gFuYkeO8fcD6sclE.mp4" },
+{ k: "제목, 주제", ex: "네가 읽고 좋다고 말했던 그 책 제목이 뭐였지?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/gjT8uTf1nluos63B.mp4" },
+{ k: "서점, 책방", ex: "나는 서점에 가서 여행 서적을 찾아 구입했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/GjWVcZeZrI7eOwe4.mp4" },
+{ k: "어떻게 했어?", ex: "너 어제 돈 없다더니 옷은 어떻게 산 거야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Gn9Fe7Zfg8PDZDAd.mp4" },
+{ k: "조회", ex: "교장 선생님 말씀이 있을 예정이니, 아침 9시까지 조회하러 모여 주시기 바랍니다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Gs7z0ToUATlwfsBa.mp4" },
+{ k: "악용하다, 이용하다, 악용, 이용", ex: "○○이는 회사 카드를 마구 악용하다가 적발되었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/HiXheqX7DlNBRpQM.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 여러분들은 여기 왜 모여 있나요? 나: 네, 봉사 활동을 하려고요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/HTTHtkcIHI8Hfws0.mp4" },
+{ k: "-지만, -으나, -는데", ex: "가: 오늘 수업 발표 네가 맡은 거 맞지? 나: 응, 맞아. 근데 내가 몸이 안 좋아서 ○○이에게 넘겼어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/hVXO3QJxOnZMZAXI.mp4" },
+{ k: "조회", ex: "비가 오므로 조회는 학교 체육관에서 할 예정이니 그곳으로 모여 주시기 바랍니다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/HYD5WbFDwNCGy93J.mp4" },
+{ k: "아마, 혹시, 설마", ex: "가: 너 일이 몇 시에 끝날 것 같아? 나: 아마 어림잡아 4시쯤 끝날 것 같아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/iHrzwYOiT7dRTFfL.mp4" },
+{ k: "하지 마, 그만해, 멈춰, 금지, 금지하다, 중단, 중단하다", ex: "나 잘 때 깨우지 마!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/iitchoFW7HvLUy5z.mp4" },
+{ k: "하다[행동]", ex: "가: 서랍에 보니 내 팬티가 부족해. 빨래 안 해? 나: 아! 해야지.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/j1oEWkWTNv3Vb6gI.mp4" },
 { k: "지우다, 삭제, 삭제하다", ex: "가: 영상에서 이 부분은 지울까? 나: 아니야, 그대로 살려 놔.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/J5wNMnSFjkGSaHL4.mp4" },
-{ k: "서점, 책방", ex: "가: 저기 서점이 있었는데, 왜 비어 있지? 나: 예전에 이미 폐업했잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wdVwdksyDAQfFcI8.mp4" },
+{ k: "방법", ex: "수어를 자연스럽게 구사하는 방법을 나에게 가르쳐 줘.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/JXRomrIAhyASQzRt.mp4" },
+{ k: "어떻게 했어?", ex: "가: 너 집 멀잖아. 어떻게 왔어? 나: 어젯밤에 친구 집에서 자고 온 거야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/k4dNG6O8U3Pk8p7V.mp4" },
+{ k: "심다", ex: "나는 할머니 밭일을 도와드리기 위해서 고구마를 심었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/K5NmJfaUI3YjqAYe.mp4" },
+{ k: "서점, 책방", ex: "서점에서 만나자, 알았지?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/KDwwMLnmHqRuHErd.mp4" },
+{ k: "이삿짐", ex: "우리 집 이삿짐 꾸리는 것 좀 도와줘.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/klxQJcIqT9IAk6FF.mp4" },
+{ k: "하지 마, 그만해, 멈춰, 금지, 금지하다, 중단, 중단하다", ex: "너 독감 예방 접종했으니, 오늘은 샤워하지 마.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/KPft03Upbvsao2Zc.mp4" },
+{ k: "붙이다, 붙다", ex: "여기 주차해도 되는 곳이라며. 차에 불법 주차 딱지 붙었잖아!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Ky88IHWAjlh1NBaW.mp4" },
+{ k: "몰래", ex: "나는 ○○이가 잠이 든 것을 확인하고 △△에게 "우리 ○○이 몰래 삼겹살 먹으러 나가자"라고 말했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/KZWm46TJnHmd0RjC.mp4" },
+{ k: "몰래", ex: "나는 엄마 몰래 게임을 하다가 엄마에게 걸렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/KZWm46TJnHmd0RjC.mp4" },
+{ k: "있다", ex: "너희 집에 개 키우니?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/lEehfQwBl2rdnLbc.mp4" },
+{ k: "줄 서다", ex: "저 가게는 떡볶이가 맛있다고 하더니 정말 줄이 엄청나게 늘어서 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/LmaRiRsoyBIwnT9b.mp4" },
+{ k: "증가, 증가하다, 늘다, 늘어나다", ex: "우리 축구 동호회 회원 신청자 수가 엄청나게 늘어났다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/lpRPqf0r6OmEprIa.mp4" },
+{ k: "증가, 증가하다, 늘다, 늘어나다", ex: "여름이 되니까 모기가 엄청 늘었네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/lzqOC7CiM6o8Kc65.mp4" },
+{ k: "이용하다, 활용하다, 이용, 활용", ex: "이체할 때 은행에 갈 필요 없이 핸드폰을 이용하면 아주 편리해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/MIThqRrEwazOwnsF.mp4" },
+{ k: "사고, 사건, 재해", ex: "나는 문자를 받고 확인해 보니 폭우로 산사태가 발생하여 도로 차량 통행이 통제되었다는 내용이었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/MNiiqMELfRksEo7t.mp4" },
+{ k: "심다", ex: "나는 하루 종일 논에서 모내기하느라 허리가 아프다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/mW57EFEziemv4KvH.mp4" },
+{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "너 야구 타격 자세가 잘못됐어. 내가 자세 잡는 법 가르쳐 줄게.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/mxbogGUpvF4T1e64.mp4" },
+{ k: "위험, 위험하다, 불안전, 불안전하다, 불안, 불안하다, 위기", ex: "저 바다에서 수영하는 건 너무 위험해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Mxtzp1oczeILAWYV.mp4" },
+{ k: "하지 마, 그만해, 멈춰, 금지, 금지하다, 중단, 중단하다", ex: "너 피곤하잖아! 계속 일하지 말고 좀 쉬어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/mYAfc2ivtDguermM.mp4" },
+{ k: "있다", ex: "가: ○○이가 자기는 애인 없다고 말하던데? 나: 아니야, 걔 애인 있어!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/nd61wVlPkFz3I0FD.mp4" },
+{ k: "줄 서다", ex: "나는 버스 대기 줄이 길어 회사에 시간 내에 도착하지 못할 것 같아 택시를 탔다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/NjPvCcO5KXXyNA7U.mp4" },
+{ k: "목적, 목표, 꿈", ex: "나는 장차 시골에 땅을 사겠다는 목표를 가지고 지금 열심히 일하며 돈을 벌고 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/NMdW5P2Ashfix7Ef.mp4" },
+{ k: "생기다, 자라나다", ex: "너 전 세계로 여기저기 여행 다니던데 돈이 어디서 난 거니?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/nrK0U0NKXFbmN1KT.mp4" },
+{ k: "이용하다, 활용하다, 이용, 활용", ex: "○○이가 이번에 미국으로 여행 다녀왔다는데 그 점을 활용해서 우리 여행계획 도움 받아보자.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/nwNj6m3tCEKWs5Lb.mp4" },
+{ k: "어떻게 했어?", ex: "영화표 매진이던데. 너는 표를 어떻게 구한 거야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/OJPoGRDaSVhGKcTE.mp4" },
+{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 얼마 전에 ○○이가 이혼했데. 나: 정말이야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/oSRpZpB9kLUcIWqI.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 너는 영어를 배우는 목적이 뭐야? 나: 나는 나중에 해외를 다니며 여러 나라 사람과 대화하고 싶어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/owUtPbjLJ39Y2Ock.mp4" },
+{ k: "평평하다", ex: "나는 구겨진 와이셔츠를 다림질했더니, 평평하게 펴져 만족스러웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/pJKti1Rx13FfPgHe.mp4" },
+{ k: "이름, 성명, 성함, 명칭", ex: "협회 행사 참가 신청했는데 제 이름이 명단에 있나요?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/PSa0YMgo3Ef3CZHN.mp4" },
+{ k: "신분증", ex: "은행에서 통장을 개설하던 중 신분증을 깜박 잊고 챙기지 못한 것을 깨달았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/pYXQccMSXQzJvQnQ.mp4" },
+{ k: "증가, 증가하다, 늘다, 늘어나다", ex: "요즘 감기 환자가 늘고 있어서 너도 조심해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/qHgEBuDbRWLZ9YyU.mp4" },
+{ k: "아부, 아부하다, 아첨하다, 굽실거리다", ex: "나는 내 아내에게 여왕 모시듯이 굽실거린다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/qS1gGHXnznP1XotN.mp4" },
+{ k: "호텔, 모텔", ex: "가: 이 호텔은 방이 영 아닌 거 같아. 우리 다른 곳으로 옮기자. 나: 안돼, 이미 돈을 냈잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/RD1KyYbkSVKYaZ80.mp4" },
+{ k: "비밀, 기밀", ex: "가: ○○이가 이혼했다는 것이 사실이야? 나: 아니, 이혼 절차 진행 중인데 비밀이야.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rhy2SD3dEWwszr63.mp4" },
+{ k: "어울리다, 조화롭다", ex: "나는 ○○이가 정장 입은 모습을 보고 참 잘 어울린다고 생각했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rLMWbI4yXv7QIhCl.mp4" },
+{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "얘, 수영에서 헤엄칠 때 엉덩이가 뜨면 자세가 틀린 거라고!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ruTYsSuWQW4EHKnD.mp4" },
 { k: "서점, 책방", ex: "가: 저기요, 서점은 몇 층인가요? 나: 4층이요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rvzRFNDrmJMusTDU.mp4" },
+{ k: "붙이다, 붙다", ex: "나는 새 신발을 신었는데 바닥에 껌이 붙었어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/rxG1O8rOzJYA8WRG.mp4" },
+{ k: "몰래", ex: "나는 딸의 생일 선물을 딸이 모르게 준비했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ScCd2bicfg68Gwu8.mp4" },
+{ k: "제목, 주제", ex: "나는 대학원 논문 주제로 어떤 것이 좋을지 고민하고 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/sEjZizwijwgIMRK6.mp4" },
+{ k: "줄 서다", ex: "나는 감기로 병원에 갔는데, 사람들이 줄을 서 있었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/sf1zuAyI02Z5TAgS.mp4" },
+{ k: "방법", ex: "비행기표 예매하는 방법을 나에게 가르쳐 줘.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/SMHmwA0rd1o9QntN.mp4" },
+{ k: "악용하다, 이용하다, 악용, 이용", ex: "○○이는 차가 있는 나를 이용해 항상 내 차를 얻어 타고 다닌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/sVIddWiYI99vIf2c.mp4" },
+{ k: "위험, 위험하다, 불안전, 불안전하다, 불안, 불안하다, 위기", ex: "○○이는 사람들 꾀어서 사기 치는 위험한 사람이야. 너도 조심해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/T0qceIQDQEoKK1Xc.mp4" },
+{ k: "하다[행동]", ex: "가: 너는 이번 여행에 왜 안 가? 나: 아니야, 나도 가!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ThJthhhiwv9AXzkN.mp4" },
+{ k: "있다", ex: "너 만 원 있으면 내게 좀 빌려줘. 내가 내일 이체해 줄게.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/tPSFTj4Fw62eucTf.mp4" },
+{ k: "이름, 성명, 성함, 명칭", ex: "가: 너는 이름이 정말 예쁘다. 누가 지어 주셨니? 나: 할아버지께서 지어 주셨어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/UIrG7IwXdNr60Q9R.mp4" },
+{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "가: 농학교 가려면 여기서 직진하는 거 맞지요? 나: 네, 맞아요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/umwijan0HaEjeAgA.mp4" },
+{ k: "맞다, 진짜, 사실, 정말, 실제", ex: "나는 내일 진짜로 마지막 출근하고 미국으로 가게 되었어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/UPhlcQI8NUdSfXN5.mp4" },
+{ k: "호텔, 모텔", ex: "나는 화려한 호텔에 감탄하며 들어갔는데, 내부도 으리으리해서 입이 떡 벌어졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/UpnKIutXpwsUlYyw.mp4" },
+{ k: "심다", ex: "나는 씨앗을 심고 물을 주며 며칠간 정성껏 가꾸었다. 그랬더니 새싹이 나왔다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/uSm8ZT1vuRNOHNPi.mp4" },
+{ k: "이름, 성명, 성함, 명칭", ex: "너, 그 옷 좋아 보인다. 어디 회사 거야?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/ViMq922vVj9CmWIT.mp4" },
+{ k: "지우다, 삭제, 삭제하다", ex: "나는 핸드폰을 쓰다가 실수로 연락처를 모두 지웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Vm7JyVtcC03briFt.mp4" },
+{ k: "지우다, 삭제, 삭제하다", ex: "나는 수어로 촬영한 영상을 인터넷에 올렸다. 그러나 이내 사진을 올렸다는 사실이 부끄러워 지워 버렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/vMvzlbEDvDcs8jFN.mp4" },
+{ k: "어울리다, 조화롭다", ex: "○○이가 파마하고 왔는데, ○○이에게 아주 잘 어울렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/VU5v07Oc2WvyELvD.mp4" },
+{ k: "서점, 책방", ex: "가: 저기 서점이 있었는데, 왜 비어 있지? 나: 예전에 이미 폐업했잖아.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wdVwdksyDAQfFcI8.mp4" },
+{ k: "바닥", ex: "비가 내려서 바닥 여기저기에 물기가 있으니, 미끄러지지 않도록 조심하세요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Wiw8XGbWRL74KVIh.mp4" },
+{ k: "신분증", ex: "병원 갈 때 신분증 가져가는 거 잊지 마.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/WlWvpU4sbCIRBQlj.mp4" },
+{ k: "수고, 수고하다, 노고", ex: "가: 정말 죄송하지만, 오늘 행사가 취소되었습니다. 나: 그럼 내가 여기까지 수고해서 온 게 뭐가 되나? 미리 문자라도 보내줬다면 좋았을 텐데.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/wSDcAx5P0LUzeBQe.mp4" },
+{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "가: ○○이가 내가 틀렸다며 자꾸 트집을 잡아서 아주 기분이 나빠! 나: 맞아, 나도 똑같이 당했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Wxcy9opkEF4piTAo.mp4" },
+{ k: "인기, 인기가 있다, 인기가 많다", ex: "나는 학창 시절 인기가 많았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/XdTA5LrFXDKgS8ak.mp4" },
+{ k: "수고, 수고하다, 노고", ex: "○○이는 20년간 수어 연구에 온 힘을 다하였다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xQ1YA1A05RfB5Xcu.mp4" },
+{ k: "생기다, 자라나다", ex: "너 흰머리가 벌써 나기 시작했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/XurdwJBIywIPPpIX.mp4" },
+{ k: "목적, 목표, 꿈", ex: "가: 너는 수어 행사에 참여한 목적이 뭐야? 나: 나는 농인과 어울리고 싶어서 참여했어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xVbPT6uk4f0HtQ7U.mp4" },
+{ k: "인기, 인기가 있다, 인기가 많다", ex: "나는 인기가 많은 컵라면이라고 해서 먹어 봤는데 맛있었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xvmyWsIVOi5Rg4oG.mp4" },
+{ k: "위험, 위험하다, 불안전, 불안전하다, 불안, 불안하다, 위기", ex: "비가 억수같이 쏟아지는데 운전하는 건 너무 위험해. 그러지 말고 우리 집에서 자고 가.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/xZ4QYaWU5l6bA0Bv.mp4" },
+{ k: "하다[행동]", ex: "가: 여보, 나 몸이 여기저기 뻐근하고 너무 피곤해서 청소하기가 힘들어요. 나: 하지 마요, 청소는 내가 할 테니 당신은 쉬어요.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/YKJoaAEAdm5Ky0sW.mp4" },
+{ k: "어울리다, 조화롭다", ex: "너 안경이 잘 어울린다. 어디서 샀어?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/yoqsJL8662aQJSib.mp4" },
+{ k: "어떻게 했어?", ex: "가: ○○이의 마음을 어떻게 사로잡았어? 나: 너에게 말해 주기 어려워.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/zavgdWyu6oa6hkS3.mp4" },
+{ k: "줄 서다", ex: "나는 놀이공원에서 롤러코스터 줄이 길어서 한참 동안 기다렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/zI50IVXnR9a8UQgz.mp4" },
+{ k: "하지 마, 그만해, 멈춰, 금지, 금지하다, 중단, 중단하다", ex: "○○이와 △△이가 싸우니까, 우리 동창 여행은 여기서 중단하고 해산하자!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/Zj54253HfrZUo7NV.mp4" },
+{ k: "틀리다, 오류, 틀린 것을 지적하다", ex: "문서에 틀린 부분이 있잖아. 다시 해!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202412/zUlRA1CtXtJjo01T.mp4" },
+{ k: "충치", ex: "나는 아들의 충치 때문에 치과에 돈을 많이 쓰고 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/11ewlbX5u05T6pOP.MP4" },
+{ k: "상견례", ex: "남편의 패션 감각이 워낙 엉망이라서 나는 딸아이 상견례 때 입을 옷을 남편에게 사주었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/28fVgqNhTebmYZLU.MP4" },
+{ k: "상견례", ex: "나는 양가 상견례 때 수어 통역사를 불렀다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/4odSJuX8e8APlztt.MP4" },
+{ k: "협약, 협약하다, 동맹, 동맹하다", ex: "나는 TV에서 한국과 미국이 자동차 무역에 관한 협약을 체결했다는 뉴스를 봤다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/7DZ8CwNpDpeE1eFg.MP4" },
+{ k: "가면, 탈, 가면을 쓰다, 탈을 쓰다", ex: "나는 나무를 깎아 탈을 만드는 일을 한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/7jPfdlEfUxe0IEKa.MP4" },
+{ k: "가면, 탈, 가면을 쓰다, 탈을 쓰다", ex: "나는 탈춤을 추는 아르바이트를 한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/8CWkV3Nv58MT2dYT.MP4" },
+{ k: "냉장고, 냉동고", ex: "냉장고를 열자 고약한 냄새가 나길래, 냉장고가 반짝일 정도로 구석구석 청소했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ancFzPvdqG8A0NH4.MP4" },
+{ k: "동행, 동행하다, 함께 가다, 함께 나아가다", ex: "나는 경찰의 출석 요청에 수어통역이 필요해서 통역사와 함께 갔다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/AQUliCXA3s8gbVdQ.MP4" },
+{ k: "붕대, 붕대를 감다", ex: "나는 오토바이를 타고 가다가 미끄러져서 팔 뼈가 부러져 팔에 깁스를 했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/B5XW7mm67pjTBFff.MP4" },
+{ k: "충치", ex: "나는 양치질을 게을리해서 충치가 생겼다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/CDQa6JGFNoND3fJx.MP4" },
+{ k: "붕대, 붕대를 감다", ex: "○○는 축구하다가 다른 선수와 부딪혔고, 넘어지면서 머리가 찢어져 붕대를 감았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/CZUuiwJzaxiDd6QN.MP4" },
+{ k: "수제비", ex: "비가 오니까 수제비를 먹고 싶다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/DAcCISW2eqY3h2Tt.MP4" },
+{ k: "수제비", ex: "우리 할머니의 수제비는 다른 누구의 수제비보다도 맛있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/fO5NEEQtXiHti3Mg.MP4" },
+{ k: "인맥, 연줄", ex: "○○이는 인맥이 엄청 넓다!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/FQm43EuVGwyThE93.MP4" },
+{ k: "기만, 기만하다, 사기, 사기를 치다", ex: "나는 ○○의 말에 속아 주식에 거금을 투자했다가 큰 손해를 입었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/FYZcHnH7DHMbDdBA.MP4" },
+{ k: "붕대, 붕대를 감다", ex: "아들의 팔에 상처가 나서 나는 서둘러 붕대를 찾았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/GcSOs2ID9kuGNLeE.MP4" },
+{ k: "냉장고, 냉동고", ex: "○○의 집들이에 초대받아 갔는데, 냉장고를 똑똑 두드리니 냉장고 속이 보이는 게 신기했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/GD69Erem3I6bn6ra.MP4" },
+{ k: "나이롱뽕, 뽕", ex: "나는 명절에 가족과 함께 나이롱뽕을 즐겼다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/Gdw61BpgDMtWhbvk.MP4" },
+{ k: "수제비", ex: "첫째 딸과 둘째 딸은 들깨 수제비를 먹는 걸 무척 좋아한다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/GPJ35FQZl2G1ZEH5.MP4" },
+{ k: "협약, 협약하다, 동맹, 동맹하다", ex: "대학 병원과 농아인협회가 농인을 위한 서비스 제공 관련 협약을 맺었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/h1nJLUIIvetLNR0K.MP4" },
+{ k: "충치", ex: "아들아, 과자 먹지 마. 충치 생길 수 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/HyI7XCKidjgNZQak.MP4" },
+{ k: "충치", ex: "내가 이가 아파서 치과에 가서 검진을 받았는데, 충치가 많았다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/jf4GWNQOTS2Ic2Hq.MP4" },
+{ k: "세차, 세차하다", ex: "나는 차가 너무 더러워서 세차했는데, 차가 반짝반짝 깔끔해져서 덩달아 기분이 좋아졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/KfGOXQwhoSvxPALK.MP4" },
+{ k: "가면, 탈, 가면을 쓰다, 탈을 쓰다", ex: "나는 다양한 종류의 탈을 모으는 취미가 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/KPYVcQymN67ELUfM.MP4" },
+{ k: "동행, 동행하다, 함께 가다, 함께 나아가다", ex: "나는 학교 선생님이 면담하자고 하셔서 아들과 함께 학교에 갔다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/l8SanU8Q7I1xbc2I.MP4" },
+{ k: "밀가루", ex: "집에 들어가니 아들, 딸이 밀가루를 바닥에 뿌리며 놀고 있었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/llkLCSDtJ2MIzciI.MP4" },
+{ k: "기만, 기만하다, 사기, 사기를 치다", ex: "○○는 자기가 부자인 것처럼 상대를 기만하며 여자를 금방 꾀어낸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/MAJM8ykHr1G6cZ3B.MP4" },
+{ k: "기만, 기만하다, 사기, 사기를 치다", ex: "○○는 사기 치는 게 몸에 밴 사람이다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/mCtROcyoBoRAqhhK.MP4" },
+{ k: "상견례", ex: "우리 아들의 상견례가 벌써 내일이라니, 긴장돼서 잠도 안 오네.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/Mx7Sx0MXXyN9Jo9u.MP4" },
+{ k: "기만, 기만하다, 사기, 사기를 치다", ex: "○○는 포대 갈이 방식으로 중국산 고춧가루를 국산이라고 속여 팔다가 적발되었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/oQxITlHEyRkAF8YX.MP4" },
+{ k: "냉장고, 냉동고", ex: "냉장고를 열었으면 확실히 닫아, 열린 채로 두지 마!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/PiAKPCrDxpl4X7gN.MP4" },
+{ k: "세차, 세차하다", ex: "나는 아들이 집에서 놀고 있어서 안 되겠다 싶은 마음에 세차 아르바이트를 하게 했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/q2RybwtbZCuy56lj.MP4" },
+{ k: "동행, 동행하다, 함께 가다, 함께 나아가다", ex: "허리가 아프신 우리 할머니는 병원에 혼자 가실 수 없어서 내가 함께 가 드렸다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/Q57jnrSXEZmxAJEh.MP4" },
 { k: "인맥, 연줄", ex: "가: ○○이는 그 회사에 어떻게 취직한 거야? 나: 사실은 인맥으로 취업했대.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/qmGQ5XpUF0x1cOof.MP4" },
+{ k: "가면을 쓰다, 탈을 쓰다", ex: "나는 우울증을 앓고 있지만, 티를 내지 않고 평범한 사람인 양 가면을 쓴 채 회사에 다니고 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/QniCVBNxkG7kSXcV.MP4" },
+{ k: "가면을 쓰다, 탈을 쓰다", ex: "나는 가식적인 ○○이를 참기 어렵다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/qTlhYZDEeCwphfez.MP4" },
+{ k: "인맥, 연줄", ex: "인맥을 넓히고 싶으면 소극적으로 굴지 말고 적극적으로 행동해야 해.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/QZjrXwjvX728aYw6.MP4" },
+{ k: "냉장고, 냉동고", ex: "우리 할머니 집에는 냉장고가 4개나 있다!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/RHveAk6pHNtXrv3y.MP4" },
 { k: "붕대, 붕대를 감다", ex: "가: 야, 붕대 왜 했어? 나: 어제 계단에서 넘어져서.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ruoq1mACRanRC5jo.MP4" },
+{ k: "협약, 협약하다, 동맹, 동맹하다", ex: "미래 성장을 위해 자동차 산업과 반도체 기술 산업 간에 협약이 맺어졌다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/sesfLjnt2JYaBG3q.MP4" },
+{ k: "밀가루", ex: "○○이 밀가루 알레르기가 있으니 여기 말고 다른 데로 가자.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/SQK05Gv4476PHDdG.MP4" },
+{ k: "상견례", ex: "상견례를 할 때 부모님들께서 좋아하실 만한 음식점이 어디 있을까?", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/W6pDHy4jTcRG2nqx.MP4" },
+{ k: "동행, 동행하다, 함께 가다, 함께 나아가다", ex: "너 집에만 있어서 뭐 하게! ○○이가 며칠 여행 간다는데, 함께 가!", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/WYnIl8nGktwwxF2k.MP4" },
+{ k: "인맥, 연줄", ex: "○○이는 세계 곳곳에 아는 사람이 많아서 여러 나라를 여행하니 참 좋겠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/XvP5OTCiqul8cUiK.MP4" },
+{ k: "세차, 세차하다", ex: "나는 세차 업체의 사장이다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/YFDiybMcTVw4vvi9.MP4" },
+{ k: "가면을 쓰다, 탈을 쓰다", ex: "○○이는 회사에서 가식적으로 굴고, 아첨이 대단하다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ytyyA4txxlYhCgax.MP4" },
+{ k: "협약, 협약하다, 동맹, 동맹하다", ex: "우리 회사는 저 호텔과 제휴를 맺어서 할인 혜택을 받을 수 있다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/YZgQL9N3E6DAchiU.MP4" },
+{ k: "세차, 세차하다", ex: "나는 세차를 하기에는 너무 게으르다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ZHpzThGHI8E3Yh13.MP4" },
+{ k: "냉장고, 냉동고", ex: "결혼식을 앞두고 오빠가 냉장고를 선물로 사 줘서 정말 기뻤다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202507/ZvCIQX0SulGot54c.MP4" },
+{ k: "나이롱뽕, 뽕", ex: "나는 ○○이가 나이롱뽕 규칙을 모른다고 해서 가르쳐줬다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/7Dd1qVykMANddZ05.mp4" },
+{ k: "가이드, 여행 안내원, 투어 여행", ex: "나는 가이드 없이 혼자서도 다른 나라를 여행할 수 있어.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/dABxIbntx6bIDH9a.mp4" },
+{ k: "가이드, 여행 안내원, 투어 여행", ex: "나는 해외 가이드 투어 여행 상품을 예약했다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/ekUHovc7v28Cjo4q.MP4" },
+{ k: "가이드, 여행 안내원, 투어 여행", ex: "가이드가 짜 준 해외여행 일정이 아주 촘촘해서 여유가 없었다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/gSuoyo1vBJYUph5Q.MP4" },
+{ k: "가이드, 여행 안내원, 투어 여행", ex: "농인 가이드와 함께한 여행은 정말 만족스러웠다.", src: "https://ksldict.korean.go.kr/kslserv/signFile/video/exmp/202508/X6fOalOgJ2B2QFmc.MP4" },
 
-    ];
+    // 여기에 계속 추가: { k: "단어", ex: "문장 예문", src: "영상.mp4" },
+  ];
 
-    /* ============== 상태 ============== */
-    let order = [...DATA.keys()];
-    let idx = 0;
-    let started = false;
-    let voices = [];
-    let selectedVoice = null;
+  /* 상태 */
+  let MODE = null;  // 'word' | 'sentence'
+  let idx = 0;
+  let started = false;
+  let selectedVoice = null;
 
-    /* ============== 요소 ============== */
-    const el = (id)=>document.getElementById(id);
-    const startBtn = el('startBtn');
-    const reSpeakBtn = el('reSpeakBtn');
-    const revealBtn = el('revealBtn');
-    const nextBtn = el('nextBtn');
-    const shuffleAll = el('shuffleAll');
-    const autoVoice = el('autoVoice');
-    const loopEnd = el('loopEnd');
-    const sentence = el('sentence');
-    const pos = el('pos');
-    const total = el('total');
-    const voiceName = el('voiceName');
-    const videoWrap = el('videoWrap');
-    const video = el('video');
+  /* 요소 */
+  const sentence = document.getElementById('sentence');
+  const video = document.getElementById('video');
 
-    total.textContent = DATA.length;
+  /* 모드 선택 */
+  function startMode(mode) {
+    MODE = mode;
+    document.getElementById('home').classList.remove('active');
+    document.getElementById('app').classList.add('active');
+    document.getElementById('modeTitle').textContent = mode === 'word' ? '단어 연습' : '문장 연습';
+    sentence.textContent = '시작하기를 눌러주세요.';
+    video.style.display = 'none';
+    video.pause();
+  }
 
-    /* ============== 유틸 ============== */
-    function shuffle(arr){
-      for(let i=arr.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [arr[i],arr[j]]=[arr[j],arr[i]];
-      }
-      return arr;
+  /* 유틸 */
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
     }
+    return arr;
+  }
 
-    function currentItem(){ return DATA[ order[idx] ]; }
+  function getText(item){
+    // 문장 모드면 ex 사용, 없으면 k로 대체
+    return MODE === 'sentence' ? (item.ex || item.k) : item.k;
+  }
 
-    function updateView(){
-      const item = currentItem();
-      sentence.textContent = item.k;
-      pos.textContent = (idx+1);
-      video.pause();
-      video.currentTime = 0;
-      videoWrap.style.display = 'none';
-      revealBtn.disabled = false;
-      // 자동 음성
-      if (autoVoice.checked) speak(item.k);
-    }
+  /* 음성(TTS) */
+  function speak(text){
+    try{ speechSynthesis.cancel(); }catch(e){}
+    if(!text) return;
+    const u = new SpeechSynthesisUtterance(text);
+    if(selectedVoice) u.voice = selectedVoice;
+    u.lang = (selectedVoice?.lang) || 'ko-KR';
+    u.rate = 1.0; u.pitch = 1.0;
+    speechSynthesis.speak(u);
+  }
+  function loadVoices(){
+    const voices = speechSynthesis.getVoices();
+    selectedVoice = voices.find(v=>/ko|Korean|한국어/i.test(v.lang+" "+v.name)) || voices[0] || null;
+  }
+  speechSynthesis.onvoiceschanged = loadVoices; loadVoices();
 
-    /* ============== 음성 (Web Speech Synthesis) ============== */
-    function loadVoices(){
-      voices = speechSynthesis.getVoices();
-      // ko-KR 우선, 그 다음 한글/한국어 이름 포함, 없으면 기본
-      selectedVoice = voices.find(v=>/ko|Korean|한국어/i.test(v.lang+" "+v.name)) || voices[0] || null;
-      voiceName.textContent = selectedVoice ? `${selectedVoice.name}` : '기본(브라우저)';
-    }
-    loadVoices();
-    if (typeof speechSynthesis !== 'undefined'){
-      speechSynthesis.onvoiceschanged = loadVoices;
-    }
+  /* 화면 갱신 */
+  function updateView(){
+    const item = CARDS[idx];
+    const text = getText(item);
+    sentence.textContent = text;
+    video.style.display = 'none';
+    video.pause();
+    speak(text); // 자동 음성
+  }
 
-    let speakQueue = null;
-    function speak(text){
-      try{ speechSynthesis.cancel(); }catch(e){}
-      if(!text) return;
-      const u = new SpeechSynthesisUtterance(text);
-      if (selectedVoice) u.voice = selectedVoice;
-      u.lang = (selectedVoice?.lang) || 'ko-KR';
-      u.rate = 1.0; // 말하기 속도
-      u.pitch = 1.0;
-      speakQueue = u;
-      speechSynthesis.speak(u);
-    }
+  /* 버튼 동작 */
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    shuffle(CARDS);
+    idx = 0;
+    started = true;
+    updateView();
+  });
 
-    /* ============== 이벤트 ============== */
-    startBtn.addEventListener('click', ()=>{
-      if (shuffleAll.checked) shuffle(order);
-      idx = 0; started = true;
-      updateView();
-      startBtn.textContent = '처음부터 다시';
-    });
+  document.getElementById('reSpeakBtn').addEventListener('click', ()=>{
+    if(started) speak(getText(CARDS[idx]));
+  });
 
-    reSpeakBtn.addEventListener('click', ()=>{
-      if(!started) return;
-      speak(currentItem().k);
-    });
+  document.getElementById('revealBtn').addEventListener('click', ()=>{
+    if(!started) return;
+    const item = CARDS[idx];
+    video.src = item.src;
+    video.style.display = 'block';
+    video.play().catch(()=>{ /* 자동재생 실패 시 무시 */ });
+  });
 
-    revealBtn.addEventListener('click', ()=>{
-      if(!started) return;
-      const item = currentItem();
-      video.src = item.src;
-      videoWrap.style.display = 'block';
-      // 사용자 상호작용 이후이므로 자동재생 허용됨
-      video.play().catch(()=>{ /* 자동재생 실패 시 무시 */ });
-      revealBtn.disabled = true;
-    });
+  document.getElementById('nextBtn').addEventListener('click', ()=>{
+    if(!started) return;
+    idx = (idx + 1) % CARDS.length;
+    updateView();
+  });
+</script>
 
-    nextBtn.addEventListener('click', ()=>{
-      if(!started) return;
-      if (idx < order.length-1){
-        idx++;
-        updateView();
-      } else {
-        if (loopEnd.checked){
-          shuffle(order); idx = 0; updateView();
-        }
-      }
-    });
-
-    // 키보드 단축키: Space=정답, →=다음, R=다시듣기
-    window.addEventListener('keydown', (e)=>{
-      if(e.target && ['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
-      if(e.code==='Space'){ e.preventDefault(); revealBtn.click(); }
-      else if(e.code==='ArrowRight'){ e.preventDefault(); nextBtn.click(); }
-      else if(e.key.toLowerCase()==='r'){ e.preventDefault(); reSpeakBtn.click(); }
-    });
-
-    // 페이지 이탈 시 음성 정리
-    window.addEventListener('beforeunload', ()=>{
-      try{ speechSynthesis.cancel(); }catch(e){}
-    });
-
-    // 초기 상태 표시
-    if(DATA.length===0){
-      sentence.innerHTML = '데이터가 비어 있습니다. <code>DATA</code> 배열에 항목을 추가하세요.';
-    }
-  </script>
 </body>
 </html>
